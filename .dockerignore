@@ -1,0 +1,12 @@
+.git
+.env
+.env.*
+local-secrets.json
+.local-tls
+.postgres-tools
+node_modules
+dist
+*.exe
+*.log
+*.pem
+*.key

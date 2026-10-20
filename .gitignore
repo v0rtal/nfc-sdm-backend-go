@@ -1,0 +1,22 @@
+# Runtime credentials, TLS keys and local PostgreSQL data never belong in Git.
+.env
+.env.*
+!.env.example
+local-secrets.json
+.local-tls/
+.postgres-tools/
+*.pem
+*.key
+*.p12
+*.pfx
+*.log
+*.exe
+/nfctag
+/dist/
+/coverage.out
+/.cache/
+/.idea/
+/.vscode/
+*.dump
+*.sql.gz
+node_modules/

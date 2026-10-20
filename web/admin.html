@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width"
+  /><title>Tagged items</title>
+  <style>
+    body {
+      font: 16px system-ui;
+      background: #f3f7f5;
+      color: #183d31;
+      max-width: 1100px;
+      margin: auto;
+      padding: 24px;
+    }
+    button,
+    input,
+    textarea {
+      font: inherit;
+      padding: 10px;
+      border: 1px solid #aaa;
+      border-radius: 6px;
+    }
+    button {
+      cursor: pointer;
+      background: #fff;
+    }
+    section {
+      background: white;
+      padding: 20px;
+      margin: 16px 0;
+      border-radius: 14px;
+    }
+    label {
+      display: block;
+      margin: 12px 0;
+    }
+    input,
+    textarea {
+      box-sizing: border-box;
+      width: 100%;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    td,
+    th {
+      text-align: left;
+      padding: 10px;
+      border-bottom: 1px solid #ddd;
+    }
+    img {
+      max-width: 180px;
+      max-height: 160px;
+    }
+    .muted {
+      color: #576c62;
+    }
+    #message {
+      white-space: pre-wrap;
+    }
+    a {
+      color: #176b58;
+    }
+  </style>
+  <h1>Tagged items</h1>
+  <p class="muted">
+    Tags appear here after their first verified link opening. Counters track NFC
+    reads; history records backend link openings.
+  </p>
+  <section id="login">
+    <label
+      >Management password<input
+        id="password"
+        type="password"
+        autocomplete="off" /></label
+    ><button id="connect">Connect</button>
+    <p>
+      Use HTTPS. The password stays in this page's memory and is separate from
+      your NFC master key.
+    </p>
+  </section>
+  <p id="message" role="status"></p>
+  <section id="list" hidden>
+    <button id="refresh">Refresh tags</button>
+    <button id="logout">Sign out</button>
+    <table>
+      <thead>
+        <tr>
+          <th>Tag / item</th>
+          <th>Highest counter</th>
+          <th>Unique counters / opens</th>
+          <th>Last opened</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <button id="previous">Previous</button> <button id="next">Next 100</button>
+  </section>
+  <section id="editor" hidden>
+    <h2 id="uid"></h2>
+    <p id="tamper-date"></p>
+    <label>Item name<input id="name" maxlength="200" /></label
+    ><label
+      >Description<textarea
+        id="description"
+        rows="4"
+        maxlength="10000"
+      ></textarea></label
+    ><label
+      >Item information (JSON object)<textarea
+        id="attributes"
+        rows="5"
+        spellcheck="false"
+      ></textarea></label
+    ><button id="save">Save item</button>
+    <h3>Item photos</h3>
+    <p class="muted">
+      JPEG or PNG; up to 5 MiB and 12 megapixels, maximum 10 photos. Photos are
+      visible to anyone who has their image URL.
+    </p>
+    <input id="photo" type="file" accept="image/jpeg,image/png" /><button
+      id="upload"
+    >
+      Upload photo
+    </button>
+    <div id="photos"></div>
+    <h3>Last 10 scan openings</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Opened at</th>
+          <th>Counter</th>
+          <th>Link status</th>
+          <th>Tamper</th>
+          <th>Client IP</th>
+          <th>Approximate location</th>
+        </tr>
+      </thead>
+      <tbody id="history"></tbody>
+    </table>
+  </section>
+  <script>
+    let token = "",
+      selected = "",
+      offset = 0;
+    const el = (id) => document.getElementById(id),
+      say = (text) => (el("message").textContent = text);
+    async function api(path, options = {}) {
+      const response = await fetch("/api/admin/" + path, {
+        ...options,
+        headers: { Authorization: "Bearer " + token, ...options.headers },
+        cache: "no-store",
+      });
+      if (!response.ok) throw Error(await response.text());
+      return response.status === 204 ? null : response.json();
+    }
+    function cell(row, value) {
+      const td = document.createElement("td");
+      td.textContent = value;
+      row.append(td);
+      return td;
+    }
+    async function list() {
+      const tags = await api("tags?offset=" + offset);
+      el("rows").replaceChildren();
+      for (const tag of tags) {
+        const row = document.createElement("tr"),
+          button = document.createElement("button");
+        button.textContent = tag.name || tag.uid;
+        button.onclick = () => run(() => edit(tag.uid));
+        cell(row, "").append(button);
+        cell(row, tag.max_read_counter ?? "No counter");
+        cell(row, tag.scan_count + " / " + tag.request_count);
+        cell(row, new Date(tag.last_seen).toLocaleString());
+        el("rows").append(row);
+      }
+      el("previous").disabled = offset === 0;
+      el("next").disabled = tags.length < 100;
+      el("list").hidden = false;
+    }
+    async function edit(uid) {
+      const tag = await api("tags/" + uid);
+      selected = uid;
+      el("uid").textContent = uid;
+      el("tamper-date").textContent = tag.tamper_detected_at
+        ? "Tamper first detected by backend: " +
+          new Date(tag.tamper_detected_at).toLocaleString()
+        : "No tampering recorded";
+      el("name").value = tag.name;
+      el("description").value = tag.description;
+      el("attributes").value = JSON.stringify(tag.attributes, null, 2);
+      el("photos").replaceChildren();
+      for (const photo of tag.images) {
+        const wrapper = document.createElement("span"),
+          img = document.createElement("img"),
+          button = document.createElement("button");
+        img.src = photo.url;
+        img.alt = "Item photo";
+        button.textContent = "Remove photo";
+        button.onclick = () =>
+          run(async () => {
+            if (confirm("Remove this photo?")) {
+              await api("tags/" + uid + "/images/" + photo.id, {
+                method: "DELETE",
+              });
+              await edit(uid);
+            }
+          });
+        wrapper.append(img, button);
+        el("photos").append(wrapper);
+      }
+      const events = await api("tags/" + uid + "/history");
+      el("history").replaceChildren();
+      for (const e of events) {
+        const row = document.createElement("tr");
+        cell(row, new Date(e.viewed_at).toLocaleString());
+        cell(row, e.read_counter ?? "No counter");
+        cell(row, e.status);
+        cell(row, e.tt_status);
+        cell(row, e.client_ip || "Not recorded");
+        const location = e.location || {};
+        cell(
+          row,
+          location.status === "located"
+            ? [location.city, location.region, location.country]
+                .filter(Boolean)
+                .join(", ") +
+                (location.latitude != null && location.longitude != null
+                  ? " (" + location.latitude + ", " + location.longitude + ")"
+                  : "")
+            : location.status === "local_network"
+              ? "Local network — location unavailable"
+              : location.status || "Not recorded",
+        );
+        el("history").append(row);
+      }
+      el("editor").hidden = false;
+    }
+    async function run(fn) {
+      try {
+        say("");
+        await fn();
+      } catch (e) {
+        say(e.message);
+      }
+    }
+    el("connect").onclick = () =>
+      run(async () => {
+        token = el("password").value;
+        el("password").value = "";
+        await list();
+        el("login").hidden = true;
+      });
+    el("refresh").onclick = () => run(list);
+    el("previous").onclick = () =>
+      run(async () => {
+        offset = Math.max(0, offset - 100);
+        await list();
+      });
+    el("next").onclick = () =>
+      run(async () => {
+        offset += 100;
+        await list();
+      });
+    el("logout").onclick = () => {
+      token = "";
+      selected = "";
+      el("list").hidden = true;
+      el("editor").hidden = true;
+      el("login").hidden = false;
+      el("rows").replaceChildren();
+      el("history").replaceChildren();
+      el("photos").replaceChildren();
+      el("name").value = "";
+      el("description").value = "";
+      el("attributes").value = "";
+      say("Signed out");
+    };
+    el("save").onclick = () =>
+      run(async () => {
+        const attributes = JSON.parse(el("attributes").value);
+        if (
+          !attributes ||
+          Array.isArray(attributes) ||
+          typeof attributes !== "object"
+        )
+          throw Error("Item information must be a JSON object");
+        await api("tags/" + selected, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: el("name").value,
+            description: el("description").value,
+            attributes,
+          }),
+        });
+        await list();
+        say("Item saved");
+      });
+    el("upload").onclick = () =>
+      run(async () => {
+        const file = el("photo").files[0];
+        if (!file) throw Error("Select a photo");
+        await api("tags/" + selected + "/images", {
+          method: "POST",
+          headers: { "Content-Type": file.type },
+          body: file,
+        });
+        el("photo").value = "";
+        await edit(selected);
+        say("Photo uploaded");
+      });
+  </script>
+</html>

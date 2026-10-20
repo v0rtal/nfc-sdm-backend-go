@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width"
+  /><title>Tagged item verification</title>
+  <style>
+    body {
+      font: 16px system-ui;
+      max-width: 760px;
+      margin: auto;
+      padding: 24px;
+      background: #f3f7f5;
+      color: #193b30;
+    }
+    .card {
+      background: white;
+      padding: 22px;
+      margin: 18px 0;
+      border-radius: 14px;
+    }
+    .valid {
+      background: #d9f3e5;
+      padding: 16px;
+      border-radius: 10px;
+    }
+    .warning {
+      background: #fff0ce;
+      color: #6d4300;
+      padding: 16px;
+      border-radius: 10px;
+    }
+    img {
+      max-width: 100%;
+      max-height: 450px;
+      border-radius: 12px;
+    }
+    pre {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .muted {
+      color: #576c62;
+    }
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 16px 0;
+    }
+    .badge {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .badge-green {
+      background: #d9f3e5;
+      color: #116238;
+    }
+    .badge-red {
+      background: #ffe0e0;
+      color: #a21b1b;
+    }
+    .badge-neutral {
+      background: #e8ecea;
+      color: #4c5e55;
+    }
+    .badge-dark {
+      background: #3f4347;
+      color: #fff;
+    }
+  </style>
+  {{ define "badges" }}
+    {{ if .ShowHistory }}
+      <div class="badges">
+        {{ if .TagID }}
+          <span class="badge badge-dark">Tag ID: {{ .TagID }}</span>
+        {{ end }}{{ if .Authentic }}
+          <span
+            class="badge badge-green"
+            title="Tag signature verified with this backend key"
+            >Authentic</span
+          >
+        {{ else if .Counterfeit }}
+          <span
+            class="badge badge-red"
+            title="Tag signature verification failed"
+            >Counterfeit</span
+          >
+        {{ else }}
+          <span class="badge badge-neutral">Authenticity: Unknown</span>
+        {{ end }}<span class="badge {{ .TamperClass }}"
+          >{{ .TamperLabel }}</span
+        >
+      </div>
+    {{ end }}
+  {{ end }}{{ if .Error }}
+    <h1>Verification unavailable</h1>
+    {{ template "badges" . }}
+    <p class="warning">{{ .Error }}</p>
+  {{ else }}
+    <h1>
+      {{ if .Item }}
+        {{ if .Item.Name }}{{ .Item.Name }}{{ else }}Tagged item{{ end }}
+      {{ else }}
+        Tagged item
+      {{ end }}
+    </h1>
+    {{ template "badges" . }}
+    {{ if .Item }}
+      {{ if .Item.TamperDetectedAt }}
+        <p class="warning">
+          Tamper first detected by the backend:
+          <time
+            class="scan-time"
+            datetime="{{ .Item.TamperDetectedAt.Format "2006-01-02T15:04:05.999999999Z07:00" }}"
+            >{{ .Item.TamperDetectedAt.Format "2006-01-02 15:04:05Z07:00" }}</time
+          >
+        </p>
+      {{ end }}
+    {{ end }}
+    {{ if .Validity }}
+      <div
+        id="validity"
+        class="{{ if .Validity.Valid }}
+          valid
+        {{ else }}
+          warning
+        {{ end }}
+        "
+        role="status"
+      >
+        <strong id="validity-title"
+          >{{ if .Validity.Valid }}
+            Valid link — first opening
+          {{ else }}
+            Link validity warning
+          {{ end }}
+        </strong>
+        <p id="validity-message">
+          {{ if .Validity.Valid }}
+            Signature verified. This first-opening window expires 30 seconds
+            after the backend first received this link. Opening the link again
+            immediately flags it as a repeat.
+          {{ else }}
+            {{ .Validity.Warning }}
+          {{ end }}
+
+        </p>
+        {{ if .Validity.FirstSeen }}
+          <p>
+            First received:
+            {{ .Validity.FirstSeen.UTC.Format "2006-01-02 15:04:05 UTC" }}
+          </p>
+        {{ end }}
+        {{ if .Validity.ExpiresAt }}
+          <p>
+            Expires:
+            <time
+              id="expires"
+              datetime="{{ .Validity.ExpiresAt.UTC.Format "2006-01-02T15:04:05.999999999Z07:00" }}"
+              >{{ .Validity.ExpiresAt.UTC.Format "2006-01-02 15:04:05 UTC" }}</time
+            >
+          </p>
+        {{ end }}
+
+      </div>
+    {{ else }}
+      <p class="warning">
+        Signature verified. Database tracking is disabled; link freshness is not
+        checked.
+      </p>
+    {{ end }}
+
+    {{ if .Item }}
+      <section class="card">
+        <p>{{ .Item.Description }}</p>
+        {{ if .Attributes }}
+          <h2>Item information</h2>
+          <pre>{{ .Attributes }}</pre>
+        {{ end }}{{ range .Item.Images }}
+          <p><img src="{{ .URL }}" alt="Photo of the tagged item" /></p>
+        {{ end }}
+      </section>
+    {{ end }}
+    {{ if .ShowHistory }}
+      <section class="card">
+        <h2>Last 10 scan openings</h2>
+        <p class="muted">
+          Recorded when a verified tag link reaches this backend.
+        </p>
+        {{ if .History }}
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;text-align:left">
+              <thead>
+                <tr>
+                  <th>Date / time</th>
+                  <th>Read counter</th>
+                  <th>Link status</th>
+                  <th>Tamper status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{ range .History }}
+                  <tr>
+                    <td style="padding:10px 8px 10px 0">
+                      <time
+                        class="scan-time"
+                        datetime="{{ .ViewedAt.Format "2006-01-02T15:04:05.999999999Z07:00" }}"
+                        >{{ .ViewedAt.Format "2006-01-02 15:04:05 UTC" }}</time
+                      >
+                    </td>
+                    <td>
+                      {{ if .Counter }}
+                        {{ .Counter }}
+                      {{ else }}
+                        Unavailable
+                      {{ end }}
+                    </td>
+                    <td>{{ .Status }}</td>
+                    <td>{{ .TamperStatus }}</td>
+                  </tr>
+                {{ end }}
+              </tbody>
+            </table>
+          </div>
+          <p class="muted">Times are displayed in your device's timezone.</p>
+          <script>
+            document.querySelectorAll(".scan-time").forEach((time) => {
+              time.textContent = new Date(time.dateTime).toLocaleString();
+            });
+          </script>
+        {{ else }}
+          <p>No scan history is available.</p>
+        {{ end }}
+      </section>
+    {{ else }}
+      <section class="card">
+        <h2>Verified tag message</h2>
+        <pre>{{ .JSON }}</pre>
+      </section>
+    {{ end }}
+    {{ if .Validity }}
+      {{ if .Validity.Valid }}
+<script>
+const observed=Date.parse('{{.ObservedISO}}'),expiration=Date.parse(document.getElementById('expires').dateTime),remaining=expiration-observed,started=performance.now();
+function tick(){if(performance.now()-started>=remaining){document.getElementById('validity').className='warning';document.getElementById('validity-title').textContent='Link validity warning';document.getElementById('validity-message').textContent='This link has expired. Scan the physical tag again.';clearInterval(timer)}}
+const timer=setInterval(tick,250);document.addEventListener('visibilitychange',tick);window.addEventListener('pageshow',tick);tick();
+</script>
+      {{ end }}
+    {{ end }}
+  {{ end }}
+</html>

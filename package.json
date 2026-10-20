@@ -1,0 +1,12 @@
+{
+  "name": "nfc-sdm-backend-source-formatting",
+  "private": true,
+  "scripts": {
+    "format": "prettier --write web/*.html *.md docs/*.md",
+    "format:check": "prettier --check web/*.html *.md docs/*.md"
+  },
+  "devDependencies": {
+    "prettier": "3.4.2",
+    "prettier-plugin-go-template": "0.0.15"
+  }
+}

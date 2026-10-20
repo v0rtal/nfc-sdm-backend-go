@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width"
+  /><title>Tag directory</title>
+  <style>
+    body {
+      font: 16px system-ui;
+      background: #f3f7f5;
+      color: #193b30;
+      max-width: 1100px;
+      margin: auto;
+      padding: 24px;
+    }
+    header {
+      margin: 20px 0 30px;
+    }
+    h1 {
+      font-size: 34px;
+    }
+    a {
+      color: #176b58;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 22px;
+      overflow: hidden;
+    }
+    h2 {
+      margin-top: 0;
+    }
+    .badge {
+      display: inline-block;
+      background: #3f4347;
+      color: white;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .muted {
+      color: #576c62;
+    }
+    img {
+      width: 100%;
+      max-height: 280px;
+      object-fit: contain;
+      border-radius: 10px;
+      margin: 12px 0;
+    }
+    pre {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      font: 14px system-ui;
+    }
+    .description {
+      white-space: pre-wrap;
+    }
+    dt {
+      color: #576c62;
+      font-size: 13px;
+      margin-top: 10px;
+    }
+    dd {
+      margin: 2px 0;
+    }
+    nav {
+      display: flex;
+      gap: 16px;
+      margin: 24px 0;
+    }
+    nav a {
+      padding: 10px 16px;
+      background: white;
+      border-radius: 8px;
+    }
+  </style>
+  <header>
+    <h1>{{ if .Single }}Tagged item{{ else }}Tag directory{{ end }}</h1>
+    {{ if .Single }}
+      <p class="muted">Registered tags and the items they belong to.</p>
+    {{ else }}
+      <p>
+        Every tag has a unique identity and produces cryptographically
+        verifiable messages, connecting each item to a record you can check.
+        Those records help build provenance—the story of an item's origin and
+        history. Chain of ownership is coming soon, so that story can follow an
+        item as it changes hands.
+      </p>
+      <p>
+        TagTamper adds a layer of physical security: opening its tamper loop
+        leaves a lasting record that the backend can verify, helping reveal
+        interference with the tag's attachment or seal.
+      </p>
+      <p class="muted">
+        Nothing is perfect—but at least these tags have a better memory than the
+        person who keeps losing their keys.
+      </p>
+    {{ end }}{{ if .Single }}<a href="/">All tags</a>{{ end }}
+  </header>
+  {{ if .Unavailable }}
+    <p>Tag inventory is not configured yet.</p>
+  {{ else }}
+    <main class="grid">
+      {{ range .Items }}
+        <article class="card">
+          <h2>
+            <a href="/items/{{ .Tag.UID }}"
+              >{{ if .Tag.Name }}
+                {{ .Tag.Name }}
+              {{ else }}
+                Unnamed item
+              {{ end }}</a
+            >
+          </h2>
+          <span class="badge">Tag ID: {{ .Tag.UID }}</span>{{ if $.Single }}
+            {{ range .Tag.Images }}
+              <img src="{{ .URL }}" alt="Photo of tagged item" loading="lazy" />
+            {{ end }}{{ if .Tag.Description }}
+              <p class="description">{{ .Tag.Description }}</p>
+            {{ end }}{{ if .Information }}
+              <h3>Item information</h3>
+              <pre>{{ .Information }}</pre>
+            {{ end }}
+            <dl>
+              <dt>Highest recorded read counter</dt>
+              <dd>
+                {{ if .Tag.MaxCounter }}
+                  {{ .Tag.MaxCounter }}
+                {{ else }}
+                  Unavailable
+                {{ end }}
+              </dd>
+              <dt>Recorded scan openings</dt>
+              <dd>{{ .Tag.RequestCount }}</dd>
+              <dt>Last recorded tamper status</dt>
+              <dd>
+                {{ if .Tag.TamperStatus }}
+                  {{ .Tag.TamperStatus }}
+                {{ else }}
+                  Unknown
+                {{ end }}
+              </dd>
+              {{ if .Tag.TamperDetectedAt }}
+                <dt>Tamper first detected by backend</dt>
+                <dd>
+                  <time
+                    datetime="{{ .Tag.TamperDetectedAt.Format "2006-01-02T15:04:05Z07:00" }}"
+                    >{{ .Tag.TamperDetectedAt.Format "2006-01-02 15:04:05Z07:00" }}</time
+                  >
+                </dd>
+              {{ end }}
+              <dt>First seen</dt>
+              <dd>
+                <time
+                  datetime="{{ .Tag.FirstSeen.Format "2006-01-02T15:04:05Z07:00" }}"
+                  >{{ .Tag.FirstSeen.Format "2006-01-02 15:04:05Z07:00" }}</time
+                >
+              </dd>
+              <dt>Last seen</dt>
+              <dd>
+                <time
+                  datetime="{{ .Tag.LastSeen.Format "2006-01-02T15:04:05Z07:00" }}"
+                  >{{ .Tag.LastSeen.Format "2006-01-02 15:04:05Z07:00" }}</time
+                >
+              </dd>
+            </dl>
+          {{ else }}
+            {{ if .Preview }}<p class="description">{{ .Preview }}</p>{{ end }}
+          {{ end }}
+        </article>
+      {{ else }}
+        <p>
+          No tags have been registered yet. Open a verified tag link to add its
+          item.
+        </p>
+      {{ end }}
+    </main>
+    {{ if not .Single }}
+      <nav aria-label="Directory pages">
+        {{ if .HasPrevious }}
+          <a href="/?page={{ .Previous }}">Previous</a>
+        {{ end }}{{ if .HasNext }}<a href="/?page={{ .Next }}">Next</a>{{ end }}
+      </nav>
+    {{ end }}
+  {{ end }}
+  {{ if not .Single }}
+    <footer
+      style="margin-top:32px;padding-top:16px;border-top:1px solid #d5ded8"
+    >
+      <a href="/downloads/NFC-Tag-Writer-debug.apk"
+        >Download the latest NFC Tag Writer for Android (APK)</a
+      >
+    </footer>
+  {{ end }}
+  <script>
+    document.querySelectorAll("time").forEach((time) => {
+      time.textContent = new Date(time.dateTime).toLocaleString();
+    });
+  </script>
+</html>
