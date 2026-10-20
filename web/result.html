@@ -124,6 +124,7 @@
     {{ if .Validity }}
       <div
         id="validity"
+        data-observed="{{ .ObservedISO }}"
         class="{{ if .Validity.Valid }}
           valid
         {{ else }}
@@ -244,11 +245,30 @@
     {{ end }}
     {{ if .Validity }}
       {{ if .Validity.Valid }}
-<script>
-const observed=Date.parse('{{.ObservedISO}}'),expiration=Date.parse(document.getElementById('expires').dateTime),remaining=expiration-observed,started=performance.now();
-function tick(){if(performance.now()-started>=remaining){document.getElementById('validity').className='warning';document.getElementById('validity-title').textContent='Link validity warning';document.getElementById('validity-message').textContent='This link has expired. Scan the physical tag again.';clearInterval(timer)}}
-const timer=setInterval(tick,250);document.addEventListener('visibilitychange',tick);window.addEventListener('pageshow',tick);tick();
-</script>
+        <script>
+          const banner = document.getElementById("validity");
+          const observed = Date.parse(banner.dataset.observed);
+          const expiration = Date.parse(
+            document.getElementById("expires").dateTime,
+          );
+          const remaining = expiration - observed;
+          // Measure elapsed time without assuming the phone's clock matches the server.
+          const started = performance.now();
+          function tick() {
+            if (performance.now() - started >= remaining) {
+              banner.className = "warning";
+              document.getElementById("validity-title").textContent =
+                "Link validity warning";
+              document.getElementById("validity-message").textContent =
+                "This link has expired. Scan the physical tag again.";
+              clearInterval(timer);
+            }
+          }
+          const timer = setInterval(tick, 250);
+          document.addEventListener("visibilitychange", tick);
+          window.addEventListener("pageshow", tick);
+          tick();
+        </script>
       {{ end }}
     {{ end }}
   {{ end }}
